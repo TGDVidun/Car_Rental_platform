@@ -1,15 +1,77 @@
-/** Approximate coordinates for Sri Lanka cities (lat, lng). */
 export const locationCoords: Record<string, [number, number]> = {
+  // Western
   Colombo: [6.9271, 79.8612],
+  Gampaha: [7.084, 80.0098],
+  Kalutara: [6.5854, 79.9607],
+  // Central
   Kandy: [7.2906, 80.6337],
-  Galle: [6.0531, 80.221],
-  Negombo: [7.2088, 79.8358],
+  Matale: [7.4675, 80.6234],
   "Nuwara Eliya": [6.9497, 80.7891],
-  Mirissa: [5.9495, 80.4572],
-  Anuradhapura: [8.3114, 80.4037],
+  // Southern
+  Galle: [6.0531, 80.221],
+  Matara: [5.9549, 80.555],
+  Hambantota: [6.1246, 81.1185],
+  // Northern
   Jaffna: [9.6615, 80.0255],
-  Ella: [6.8667, 81.0462],
+  Kilinochchi: [9.3803, 80.3992],
+  Mannar: [8.981, 79.9044],
+  Mullaitivu: [9.2671, 80.8143],
+  Vavuniya: [8.7542, 80.4982],
+  // Eastern
   Trincomalee: [8.5874, 81.2152],
+  Batticaloa: [7.7102, 81.6924],
+  Ampara: [7.2843, 81.6747],
+  // North Western
+  Kurunegala: [7.4818, 80.3609],
+  Puttalam: [8.0362, 79.8283],
+  // North Central
+  Anuradhapura: [8.3114, 80.4037],
+  Polonnaruwa: [7.936, 81.001],
+  // Uva
+  Badulla: [6.9934, 81.055],
+  Monaragala: [6.891, 81.35],
+  // Sabaragamuwa
+  Ratnapura: [6.6828, 80.3992],
+  Kegalle: [7.2513, 80.3464],
+  // Additional popular spots
+  Negombo: [7.2088, 79.8358],
+  Mirissa: [5.9495, 80.4572],
+  Ella: [6.8667, 81.0462],
+};
+
+export const districtProvinceMap: Record<string, string> = {
+  Colombo: "Western",
+  Gampaha: "Western",
+  Kalutara: "Western",
+  Kandy: "Central",
+  Matale: "Central",
+  "Nuwara Eliya": "Central",
+  NuwaraEliya: "Central", // Handle both
+  Galle: "Southern",
+  Matara: "Southern",
+  Hambantota: "Southern",
+  Jaffna: "Northern",
+  Kilinochchi: "Northern",
+  Mannar: "Northern",
+  Mullaitivu: "Northern",
+  Vavuniya: "Northern",
+  Trincomalee: "Eastern",
+  Batticaloa: "Eastern",
+  Ampara: "Eastern",
+  Kurunegala: "North Western",
+  Puttalam: "North Western",
+  Anuradhapura: "North Central",
+  Polonnaruwa: "North Central",
+  Badulla: "Uva",
+  Monaragala: "Uva",
+  Ratnapura: "Sabaragamuwa",
+  Kegalle: "Sabaragamuwa"
+};
+
+export const getProvinceForDistrict = (district: string): string => {
+  // Normalize district name (remove spaces and special chars if needed, or just look up)
+  const normalized = district.replace(/\s+/g, "");
+  return districtProvinceMap[district] || districtProvinceMap[normalized] || "Western";
 };
 
 /** Sri Lanka center for map default view. */

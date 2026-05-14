@@ -34,6 +34,8 @@ import ManageBookingsPage from "./pages/ManageBookingsPage";
 import PaidVehiclesPage from "./pages/PaidVehiclesPage";
 import ChatBox from "./components/ChatBox";
 
+import { FilterProvider } from "@/context/FilterContext";
+
 const queryClient = new QueryClient();
 
 function SplashScreen() {
@@ -72,7 +74,8 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+      <FilterProvider>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <AnimatePresence mode="wait">
@@ -125,6 +128,7 @@ const App = () => {
           )}
         </AnimatePresence>
       </TooltipProvider>
+      </FilterProvider>
     </QueryClientProvider>
   );
 };

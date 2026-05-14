@@ -59,6 +59,11 @@ class VehicleBase(BaseModel):
     province: Optional[str] = "Western"
     rating: float = 5.0
     review_count: int = 0
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    district: Optional[str] = None
+    city: Optional[str] = None
+    road: Optional[str] = None
 
 class VehicleCreate(VehicleBase):
     pass

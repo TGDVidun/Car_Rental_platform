@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, getDepositAmount } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { getProvinceForDistrict } from "@/data/mapLocations";
 import {
   addMonths,
   subMonths,
@@ -44,7 +45,8 @@ const transformVehicle = (v: any) => ({
   seats: v.seats || 5,
   transmission: (v.transmission || "automatic").toLowerCase(),
   location: v.location,
-  province: v.province || "Western",
+  district: v.district,
+  province: getProvinceForDistrict(v.district || v.location),
   pricePerDay: v.price_per_day,
   driverPricePerDay: v.driver_price_per_day || 1500,
   rating: v.rating || 5.0,
@@ -314,7 +316,7 @@ export default function VehicleDetails() {
                   <h1 className="text-2xl font-heading font-bold text-foreground">{vehicle.name}</h1>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                     <MapPin className="w-3.5 h-3.5" />
-                    {vehicle.location}, {vehicle.province}
+                    {vehicle.district || vehicle.location}, {vehicle.province}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

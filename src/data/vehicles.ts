@@ -16,6 +16,9 @@ export interface Vehicle {
   description: string;
   latitude?: number | null;
   longitude?: number | null;
+  district?: string;
+  city?: string;
+  road?: string;
 }
 
 export const vehicles: Vehicle[] = [

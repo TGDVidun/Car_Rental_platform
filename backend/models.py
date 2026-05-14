@@ -41,6 +41,13 @@ class Vehicle(Base):
     review_count = Column(Integer, default=0)
     is_approved = Column(Boolean, default=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # New Location Fields
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    district = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    road = Column(String(255), nullable=True)
 
     bookings = relationship("Booking", back_populates="vehicle")
     owner = relationship("User", back_populates="vehicles")

@@ -92,7 +92,9 @@ export default function VehicleCard({ vehicle }: VehicleCardProps) {
 
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
             <MapPin className="w-4 h-4 text-primary/70" />
-            <span className="line-clamp-1">{vehicle.location}, {vehicle.province}</span>
+            <span className="line-clamp-1">
+              {vehicle.district || vehicle.location}, {vehicle.province}
+            </span>
           </div>
 
           {/* Feature Tags */}

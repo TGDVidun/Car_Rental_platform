@@ -12,6 +12,7 @@ import {
   SRI_LANKA_DEFAULT_ZOOM,
   getCoordsForVehicle,
   locationCoords,
+  getProvinceForDistrict
 } from "@/data/mapLocations";
 import "leaflet/dist/leaflet.css";
 
@@ -24,7 +25,7 @@ const transformVehicle = (v: any): Vehicle => ({
   seats: v.seats || 5,
   transmission: (v.transmission || "automatic").toLowerCase(),
   location: v.location,
-  province: v.province || "Western",
+  province: getProvinceForDistrict(v.district || v.location),
   pricePerDay: v.price_per_day,
   rating: v.rating || 5.0,
   reviewCount: v.review_count || 0,
@@ -35,6 +36,9 @@ const transformVehicle = (v: any): Vehicle => ({
   description: v.description || "",
   latitude: v.latitude,
   longitude: v.longitude,
+  district: v.district,
+  city: v.city,
+  road: v.road,
 });
 
 function getVehiclePosition(vehicle: Vehicle, index: number): [number, number] {
@@ -129,38 +133,67 @@ function MapZoomControls() {
   );
 }
 
+import { useFilters } from "@/context/FilterContext";
+
+function MapSync({ vehicles }: { vehicles: Vehicle[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (vehicles.length === 0) {
+      map.setView(SRI_LANKA_CENTER, SRI_LANKA_DEFAULT_ZOOM);
+      return;
+    }
+
+    try {
+      const coords = vehicles.map((v, i) => {
+        const lat = Number(v.latitude);
+        const lng = Number(v.longitude);
+        if (lat && lng && lat !== 0 && lng !== 0) return [lat, lng];
+        return getCoordsForVehicle(v.district || v.location || "Colombo", i);
+      }) as [number, number][];
+
+      if (coords.length === 1) {
+        map.setView(coords[0], 14, { animate: true });
+      } else {
+        const bounds = L.latLngBounds(coords);
+        map.fitBounds(bounds, { 
+          padding: [80, 80], 
+          maxZoom: 12, 
+          animate: true,
+          duration: 1.5 
+        });
+      }
+    } catch (err) {
+      console.error("Map centering error:", err);
+    }
+  }, [vehicles, map]);
+  return null;
+}
+
 export default function MapPage() {
   const { isDark } = useTheme();
   const [selected, setSelected] = useState<string | null>(null);
-  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
-  const [locationLoading, setLocationLoading] = useState(true);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
   const [locationSearchOpen, setLocationSearchOpen] = useState(false);
   const [searchFlyToPosition, setSearchFlyToPosition] = useState<[number, number] | null>(null);
-  const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const { data: remoteVehicles, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ["vehicles"],
-    queryFn: async () => {
-      const response = await fetch("http://127.0.0.1:8000/vehicles");
-      if (!response.ok) throw new Error("Failed to fetch vehicles");
-      const data = await response.json();
-      return data.map(transformVehicle);
-    },
-  });
+  const {
+    selectedProvince, setSelectedProvince,
+    selectedDistrict: districtFilter, setSelectedDistrict: setDistrictFilter,
+    selectedCity, setSelectedCity,
+    filteredVehicles,
+    isLoading: vehiclesLoading
+  } = useFilters();
 
-  const availableVehicles = remoteVehicles?.length ? remoteVehicles : fallbackVehicles;
   const locationNames = useMemo(
     () =>
       Array.from(
         new Set([
           ...LOCATION_NAMES,
-          ...availableVehicles.map((vehicle) => vehicle.location).filter(Boolean),
+          ...fallbackVehicles.map((vehicle) => vehicle.location).filter(Boolean),
         ])
       ).sort(),
-    [availableVehicles]
+    []
   );
 
   useEffect(() => {
@@ -178,47 +211,10 @@ export default function MapPage() {
     : locationNames.slice(0, 8);
 
   const handleSelectLocation = (name: string) => {
-    const vehicleAtLocation = availableVehicles.find(
-      (vehicle) => vehicle.location.toLowerCase() === name.toLowerCase()
-    );
-    const coords = locationCoords[name] ?? (
-      vehicleAtLocation
-        ? getVehiclePosition(vehicleAtLocation, availableVehicles.indexOf(vehicleAtLocation))
-        : null
-    );
-
-    setLocationFilter(name);
+    setSelectedCity(name);
     setLocationSearchQuery(name);
     setLocationSearchOpen(false);
-
-    if (coords) {
-      setSearchFlyToPosition(coords);
-    }
   };
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser.");
-      setLocationLoading(false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
-        setLocationError(null);
-        setLocationLoading(false);
-      },
-      () => {
-        setLocationError("Location access denied or unavailable.");
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
-  }, []);
-
-  const filteredVehicles = locationFilter
-    ? availableVehicles.filter((v) => v.location.toLowerCase() === locationFilter.toLowerCase())
-    : availableVehicles;
 
   const vehicleCoords = filteredVehicles.map((v, i) => ({
     vehicle: v,
@@ -238,30 +234,63 @@ export default function MapPage() {
             Map View
           </h1>
           <div className="flex items-center gap-4">
-            {locationLoading && (
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Getting your location…
-              </span>
-            )}
             {vehiclesLoading && (
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading vehicles...
               </span>
             )}
-            {locationError && (
-              <span className="text-sm text-muted-foreground" title={locationError}>
-                Your location unavailable
-              </span>
-            )}
-            {userPosition && (
-              <span className="flex items-center gap-1.5 text-sm text-foreground">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white shadow" />
-                You are here
-              </span>
-            )}
             <span className="flex items-center gap-2 font-label text-muted-foreground text-sm">
+              <select 
+                value={districtFilter}
+                onChange={(e) => setDistrictFilter(e.target.value)}
+                className="bg-transparent border-none outline-none font-semibold text-primary"
+              >
+                <option value="">All Districts</option>
+                <optgroup label="Western">
+                  <option value="Colombo">Colombo</option>
+                  <option value="Gampaha">Gampaha</option>
+                  <option value="Kalutara">Kalutara</option>
+                </optgroup>
+                <optgroup label="Central">
+                  <option value="Kandy">Kandy</option>
+                  <option value="Matale">Matale</option>
+                  <option value="Nuwara Eliya">Nuwara Eliya</option>
+                </optgroup>
+                <optgroup label="Southern">
+                  <option value="Galle">Galle</option>
+                  <option value="Matara">Matara</option>
+                  <option value="Hambantota">Hambantota</option>
+                </optgroup>
+                <optgroup label="Northern">
+                  <option value="Jaffna">Jaffna</option>
+                  <option value="Kilinochchi">Kilinochchi</option>
+                  <option value="Mannar">Mannar</option>
+                  <option value="Mullaitivu">Mullaitivu</option>
+                  <option value="Vavuniya">Vavuniya</option>
+                </optgroup>
+                <optgroup label="Eastern">
+                  <option value="Trincomalee">Trincomalee</option>
+                  <option value="Batticaloa">Batticaloa</option>
+                  <option value="Ampara">Ampara</option>
+                </optgroup>
+                <optgroup label="North Western">
+                  <option value="Kurunegala">Kurunegala</option>
+                  <option value="Puttalam">Puttalam</option>
+                </optgroup>
+                <optgroup label="North Central">
+                  <option value="Anuradhapura">Anuradhapura</option>
+                  <option value="Polonnaruwa">Polonnaruwa</option>
+                </optgroup>
+                <optgroup label="Uva">
+                  <option value="Badulla">Badulla</option>
+                  <option value="Monaragala">Monaragala</option>
+                </optgroup>
+                <optgroup label="Sabaragamuwa">
+                  <option value="Ratnapura">Ratnapura</option>
+                  <option value="Kegalle">Kegalle</option>
+                </optgroup>
+              </select>
               <List className="w-4 h-4" />
               {filteredVehicles.length} vehicles
             </span>
@@ -289,11 +318,11 @@ export default function MapPage() {
                 placeholder="Search by location..."
                 className="w-full pl-11 pr-10 py-3 rounded-2xl bg-transparent text-foreground text-sm placeholder:text-muted-foreground/80 focus:outline-none focus:ring-0 border-0"
               />
-              {locationFilter && (
+              {districtFilter && (
                 <button
                   type="button"
                   onClick={() => {
-                    setLocationFilter(null);
+                    setDistrictFilter("");
                     setLocationSearchQuery("");
                     setLocationSearchOpen(false);
                   }}
@@ -333,14 +362,7 @@ export default function MapPage() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url={isDark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
             />
-            {userPosition && (
-              <>
-                <Marker position={userPosition} icon={createUserIcon()} zIndexOffset={1000}>
-                  <Popup>Your location</Popup>
-                </Marker>
-                <FlyToUser position={userPosition} />
-              </>
-            )}
+            <MapSync vehicles={filteredVehicles} />
             <FocusOnVehicle position={selectedPosition} />
             <FlyToSearch position={searchFlyToPosition} />
             <MapZoomControls />
@@ -378,7 +400,7 @@ export default function MapPage() {
                         <p className="font-heading font-semibold text-foreground">{vehicle.name}</p>
                         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3 shrink-0" />
-                          {vehicle.location}, {vehicle.province}
+                          {vehicle.district || vehicle.location}, {vehicle.province}
                         </p>
                         <p className="mt-2 font-heading font-bold text-primary">{formatCurrency(vehicle.pricePerDay)}<span className="text-xs font-normal text-muted-foreground">/day</span></p>
                         <Link
@@ -428,7 +450,7 @@ export default function MapPage() {
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center py-2.5 pl-3 pr-10 gap-1">
                     <p className="font-heading font-semibold text-foreground text-sm leading-tight truncate">{v.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{v.location}, {v.province}</p>
+                    <p className="text-xs text-muted-foreground truncate">{v.district || v.location}, {v.province}</p>
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <span className="font-semibold text-primary text-sm">{formatCurrency(v.pricePerDay)}<span className="font-normal text-muted-foreground text-xs">/day</span></span>
                       <span className="flex items-center gap-0.5 text-xs text-muted-foreground shrink-0">

@@ -207,8 +207,11 @@ async def upload_image(file: UploadFile = File(...), current_user: models.User =
 
 # --- VEHICLE ENDPOINTS ---
 @app.get("/vehicles", response_model=List[schemas.Vehicle])
-def get_vehicles(db: Session = Depends(get_db)):
-    return db.query(models.Vehicle).filter(models.Vehicle.is_approved == True).all()
+def get_vehicles(district: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Vehicle).filter(models.Vehicle.is_approved == True)
+    if district:
+        query = query.filter(models.Vehicle.district == district)
+    return query.all()
 
 @app.get("/vehicles/{vehicle_id}", response_model=schemas.Vehicle)
 def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
@@ -445,20 +448,37 @@ async def update_booking_status(
 @app.post("/bookings/{booking_id}/pay", response_model=schemas.Booking)
 def pay_booking(
     booking_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    booking = db.query(models.Booking).filter(
+    booking = db.query(models.Booking).options(
+        joinedload(models.Booking.vehicle),
+        joinedload(models.Booking.user)
+    ).filter(
         models.Booking.id == booking_id,
         models.Booking.user_id == current_user.id
     ).first()
+    
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.status != "confirmed":
         raise HTTPException(status_code=400, detail="Only confirmed bookings can be paid")
+    
     booking.status = "paid"
     db.commit()
     db.refresh(booking)
+    
+    # Send Receipt Email in Background
+    if booking.user and booking.user.email:
+        background_tasks.add_task(
+            email_utils.send_payment_receipt_email,
+            user_email=booking.user.email,
+            vehicle_name=booking.vehicle.name if booking.vehicle else "Vehicle Rental",
+            amount=booking.total_price,
+            booking_id=booking.id
+        )
+        
     return booking
 
 # --- SAFETY LOG ENDPOINTS ---
@@ -672,7 +692,7 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/webhook/stripe")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+async def stripe_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
     endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -688,14 +708,30 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        booking_id = session.get("metadata", {}).get("booking_id")
+        booking_id_str = session.get("metadata", {}).get("booking_id")
         
-        if booking_id:
-            booking = db.query(models.Booking).filter(models.Booking.id == int(booking_id)).first()
+        if booking_id_str:
+            booking_id = int(booking_id_str)
+            # Eager load related data for the receipt
+            booking = db.query(models.Booking).options(
+                joinedload(models.Booking.vehicle),
+                joinedload(models.Booking.user)
+            ).filter(models.Booking.id == booking_id).first()
+            
             if booking:
                 booking.status = "paid"
                 db.commit()
                 logger.info(f"Booking {booking_id} marked as PAID via Stripe Webhook")
+                
+                # Send Receipt Email in Background
+                if booking.user and booking.user.email:
+                    background_tasks.add_task(
+                        email_utils.send_payment_receipt_email,
+                        user_email=booking.user.email,
+                        vehicle_name=booking.vehicle.name if booking.vehicle else "Vehicle Rental",
+                        amount=booking.total_price,
+                        booking_id=booking.id
+                    )
 
     return {"status": "success"}
 

@@ -13,7 +13,33 @@ import {
     User
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import ImageUploadZone from "@/components/ImageUploadZone";
+import { getProvinceForDistrict } from "@/data/mapLocations";
+
+// Fix leaflet icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+function LocationMarker({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
+    useMapEvents({
+        click(e) {
+            onLocationSelect(e.latlng.lat, e.latlng.lng);
+        },
+    });
+    return null;
+}
 
 const PRICE_RANGES = {
     "Car": { min: 3000, max: 15000 },
@@ -54,7 +80,12 @@ export default function AddVehiclePage() {
         transmission: "Automatic",
         has_driver: true,
         seats: "5",
-        province: "Western"
+        province: "Western",
+        latitude: null as number | null,
+        longitude: null as number | null,
+        district: "",
+        city: "",
+        road: ""
     });
 
     const validatePrice = (type: string, price: string) => {
@@ -270,22 +301,113 @@ export default function AddVehiclePage() {
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-4">
                             <label className="text-xs font-bold text-[#495057] flex items-center gap-2">
-                                <MapPin className="w-3 h-3 text-muted-foreground" /> Location
+                                <MapPin className="w-3 h-3 text-muted-foreground" /> Precise Location
                             </label>
-                            <select
-                                className="w-full px-4 py-3 rounded-xl bg-[#F8F9FA] border border-transparent focus:border-primary/30 focus:bg-white transition-all outline-none text-sm font-medium"
-                                value={formData.location}
-                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                            >
-                                <option>Colombo</option>
-                                <option>Kandy</option>
-                                <option>Galle</option>
-                                <option>Negombo</option>
-                                <option>Jaffna</option>
-                                <option>Matara</option>
-                            </select>
+                            
+                            <div className="h-64 rounded-xl overflow-hidden border border-[#E9ECEF] relative z-0">
+                                <MapContainer center={[7.8731, 80.7718]} zoom={7} style={{ height: '100%', width: '100%' }}>
+                                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                    <LocationMarker onLocationSelect={async (lat, lng) => {
+                                        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                        
+                                        // Reverse geocoding
+                                        try {
+                                            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                                            const data = await res.json();
+                                            const addr = data.address;
+                                            
+                                            const detectedDistrict = addr.state_district || addr.district || addr.state || "";
+                                            const correctProvince = getProvinceForDistrict(detectedDistrict);
+                                            
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                district: detectedDistrict,
+                                                city: addr.city || addr.town || addr.village || addr.suburb || "",
+                                                road: addr.road || "",
+                                                province: correctProvince
+                                            }));
+                                        } catch (err) {
+                                            console.error("Geocoding error:", err);
+                                        }
+                                    }} />
+                                    {formData.latitude && formData.longitude && (
+                                        <Marker position={[formData.latitude, formData.longitude]} />
+                                    )}
+                                </MapContainer>
+                            </div>
+
+                            {formData.city && (
+                                <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-1">
+                                    <p className="text-[10px] font-bold text-primary uppercase">Detected Address</p>
+                                    <p className="text-xs font-medium text-foreground">
+                                        {formData.district}, {formData.province}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-[#495057]">Select District</label>
+                                <select
+                                    className="w-full px-4 py-3 rounded-xl bg-[#F8F9FA] border border-transparent focus:border-primary/30 focus:bg-white transition-all outline-none text-sm font-medium"
+                                    value={formData.district}
+                                    onChange={(e) => {
+                                        const d = e.target.value;
+                                        setFormData({ 
+                                            ...formData, 
+                                            district: d, 
+                                            location: d,
+                                            province: getProvinceForDistrict(d) 
+                                        });
+                                    }}
+                                >
+                                    <option value="">Select District</option>
+                                    <optgroup label="Western">
+                                        <option>Colombo</option>
+                                        <option>Gampaha</option>
+                                        <option>Kalutara</option>
+                                    </optgroup>
+                                    <optgroup label="Central">
+                                        <option>Kandy</option>
+                                        <option>Matale</option>
+                                        <option>Nuwara Eliya</option>
+                                    </optgroup>
+                                    <optgroup label="Southern">
+                                        <option>Galle</option>
+                                        <option>Matara</option>
+                                        <option>Hambantota</option>
+                                    </optgroup>
+                                    <optgroup label="Northern">
+                                        <option>Jaffna</option>
+                                        <option>Kilinochchi</option>
+                                        <option>Mannar</option>
+                                        <option>Mullaitivu</option>
+                                        <option>Vavuniya</option>
+                                    </optgroup>
+                                    <optgroup label="Eastern">
+                                        <option>Trincomalee</option>
+                                        <option>Batticaloa</option>
+                                        <option>Ampara</option>
+                                    </optgroup>
+                                    <optgroup label="North Western">
+                                        <option>Kurunegala</option>
+                                        <option>Puttalam</option>
+                                    </optgroup>
+                                    <optgroup label="North Central">
+                                        <option>Anuradhapura</option>
+                                        <option>Polonnaruwa</option>
+                                    </optgroup>
+                                    <optgroup label="Uva">
+                                        <option>Badulla</option>
+                                        <option>Monaragala</option>
+                                    </optgroup>
+                                    <optgroup label="Sabaragamuwa">
+                                        <option>Ratnapura</option>
+                                        <option>Kegalle</option>
+                                    </optgroup>
+                                </select>
+                            </div>
                         </div>
                     </div>
 

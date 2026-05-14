@@ -17,6 +17,8 @@ interface Vehicle {
     name: string;
     type: string;
     location: string;
+    district?: string;
+    province?: string;
     price_per_day: number;
     is_available: boolean;
     image_url: string;
@@ -162,7 +164,7 @@ export default function ManageVehiclesPage() {
                                         <div>
                                             <h3 className="text-lg font-bold text-[#212529]">{vehicle.name}</h3>
                                             <p className="text-xs text-muted-foreground flex items-center gap-1 font-semibold">
-                                                <MapPin className="w-3 h-3" /> {vehicle.location}
+                                                <MapPin className="w-3 h-3" /> {vehicle.district || vehicle.location}{vehicle.province ? `, ${vehicle.province}` : ""}
                                             </p>
                                         </div>
                                         <div className="text-right">

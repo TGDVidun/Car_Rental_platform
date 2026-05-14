@@ -137,3 +137,67 @@ async def send_password_reset_email(user_email: str, reset_link: str):
         logger.error(f"FAILURE: Could not send password reset email to {user_email}: {str(e)}")
         raise  # Re-raise so the endpoint knows it failed
 
+async def send_payment_receipt_email(user_email: str, vehicle_name: str, amount: float, booking_id: int):
+    """
+    Sends a professional payment receipt email to the user.
+    """
+    from datetime import datetime
+    html = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; padding: 40px 20px;">
+        <div style="max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #2563eb; margin: 0; font-size: 28px; letter-spacing: -1px;">RentX Receipt</h1>
+                <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Thank you for your payment!</p>
+            </div>
+            
+            <div style="border-top: 2px solid #f1f5f9; border-bottom: 2px solid #f1f5f9; padding: 25px 0; margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <span style="color: #64748b;">Booking ID:</span>
+                    <span style="font-weight: 600; color: #0f172a;">#RX-{booking_id:05d}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <span style="color: #64748b;">Vehicle:</span>
+                    <span style="font-weight: 600; color: #0f172a;">{vehicle_name}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <span style="color: #64748b;">Date:</span>
+                    <span style="font-weight: 600; color: #0f172a;">{datetime.now().strftime("%B %d, %Y")}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e2e8f0;">
+                    <span style="font-size: 18px; font-weight: 700; color: #0f172a;">Total Amount Paid</span>
+                    <span style="font-size: 18px; font-weight: 700; color: #2563eb;">LKR {amount:,.2f}</span>
+                </div>
+            </div>
+            
+            <div style="background-color: #eff6ff; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+                <p style="margin: 0; font-size: 14px; color: #1e40af; font-weight: 500;">Next Steps:</p>
+                <p style="margin: 5px 0 0; font-size: 13px; color: #1e40af;">You can now view the owner's contact details in your 'My Bookings' dashboard to coordinate the vehicle pickup.</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="http://localhost:5173/bookings" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View My Booking</a>
+            </div>
+            
+            <div style="margin-top: 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                <p style="font-size: 12px; color: #94a3b8; margin: 0;">RentX Sri Lanka - Premium Vehicle Rentals</p>
+                <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 0;">If you have any questions, contact us at support@rentx.lk</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    message = MessageSchema(
+        subject=f"Payment Receipt: Booking #RX-{booking_id:05d}",
+        recipients=[user_email],
+        body=html,
+        subtype=MessageType.html
+    )
+
+    fm = FastMail(conf)
+    try:
+        await fm.send_message(message)
+        logger.info(f"SUCCESS: Payment receipt email sent to {user_email} for booking {booking_id}")
+    except Exception as e:
+        logger.error(f"FAILURE: Could not send payment receipt to {user_email}: {str(e)}")
