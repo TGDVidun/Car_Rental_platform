@@ -17,7 +17,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import ImageUploadZone from "@/components/ImageUploadZone";
-import { getProvinceForDistrict } from "@/data/mapLocations";
+import { getProvinceForDistrict, DISTRICT_CITY_MAP } from "@/data/mapLocations";
 
 // Fix leaflet icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -357,6 +357,7 @@ export default function AddVehiclePage() {
                                         setFormData({ 
                                             ...formData, 
                                             district: d, 
+                                            city: "", // Reset city when district changes
                                             location: d,
                                             province: getProvinceForDistrict(d) 
                                         });
@@ -407,6 +408,36 @@ export default function AddVehiclePage() {
                                         <option>Kegalle</option>
                                     </optgroup>
                                 </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-[#495057]">Sub-district / City</label>
+                                    <select
+                                        className="w-full px-4 py-3 rounded-xl bg-[#F8F9FA] border border-transparent focus:border-primary/30 focus:bg-white transition-all outline-none text-sm font-medium disabled:opacity-50"
+                                        value={formData.city}
+                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                        disabled={!formData.district}
+                                    >
+                                        <option value="">Select City</option>
+                                        {formData.district && DISTRICT_CITY_MAP[formData.district]?.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                        {formData.city && !DISTRICT_CITY_MAP[formData.district]?.includes(formData.city) && (
+                                            <option value={formData.city}>{formData.city} (Detected)</option>
+                                        )}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-[#495057]">Road / Lane</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Galle Road"
+                                        className="w-full px-4 py-3 rounded-xl bg-[#F8F9FA] border border-transparent focus:border-primary/30 focus:bg-white transition-all outline-none text-sm font-medium"
+                                        value={formData.road}
+                                        onChange={(e) => setFormData({ ...formData, road: e.target.value })}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

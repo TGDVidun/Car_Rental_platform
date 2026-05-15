@@ -63,6 +63,7 @@ class Booking(Base):
     with_driver = Column(Boolean, default=False)
     total_price = Column(Float, nullable=False)
     status = Column(String(50), default="pending") # pending, confirmed, cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="bookings")
     vehicle = relationship("Vehicle", back_populates="bookings")

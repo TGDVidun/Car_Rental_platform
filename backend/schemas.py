@@ -116,6 +116,7 @@ class Booking(BookingBase):
     user_id: int
     total_price: float
     status: str
+    created_at: Optional[datetime] = None
     vehicle: Optional[Vehicle] = None
     user: Optional[User] = None
     safety_logs: List[SafetyLog] = []

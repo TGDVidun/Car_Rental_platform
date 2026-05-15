@@ -89,6 +89,30 @@ export default function MyBookingsPage() {
     useEffect(() => {
         fetchBookings();
     }, []);
+    
+    const handleCancelBooking = async (id: number) => {
+        if (!confirm("Are you sure you want to cancel this booking?")) return;
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`http://127.0.0.1:8000/bookings/${id}/user-cancel`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                toast({
+                    title: "Booking Cancelled",
+                    description: "Your reservation has been cancelled successfully.",
+                });
+                fetchBookings();
+            }
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to cancel booking.",
+                variant: "destructive"
+            });
+        }
+    };
 
 
 
@@ -104,6 +128,8 @@ export default function MyBookingsPage() {
                 return <span className="px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><CheckCircle2 className="w-3 h-3" /> Completed</span>;
             case "cancelled":
                 return <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" /> Cancelled</span>;
+            case "rejected":
+                return <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" /> Rejected by Owner</span>;
             case "pending":
             default:
                 return <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><Clock className="w-3 h-3" /> Pending Approval</span>;
@@ -206,14 +232,34 @@ export default function MyBookingsPage() {
                                         </div>
 
                                         <div className="shrink-0 w-full md:w-auto flex flex-col gap-2">
-                                            {booking.status === "confirmed" ? (
-                                                <Link
-                                                    to={`/checkout/${booking.id}`}
-                                                    className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                                                >
-                                                    <CreditCard className="w-4 h-4" />
-                                                    Make Payment
-                                                </Link>
+                                            {booking.status === "pending" ? (
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <div className="px-4 py-2 rounded-lg bg-secondary text-muted-foreground text-sm font-medium text-center border border-border/50 w-full min-w-[140px]">
+                                                        Awaiting Approval
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => handleCancelBooking(booking.id)}
+                                                        className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+                                                    >
+                                                        Cancel Request
+                                                    </button>
+                                                </div>
+                                            ) : booking.status === "confirmed" ? (
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <Link
+                                                        to={`/checkout/${booking.id}`}
+                                                        className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                                    >
+                                                        <CreditCard className="w-4 h-4" />
+                                                        Make Payment
+                                                    </Link>
+                                                    <button 
+                                                        onClick={() => handleCancelBooking(booking.id)}
+                                                        className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+                                                    >
+                                                        Cancel Booking
+                                                    </button>
+                                                </div>
                                             ) : (booking.status === "paid" || booking.status === "picked" || booking.status === "received") ? (
                                                 <div className="flex flex-col gap-3 w-full">
                                                     <div className="px-4 py-2.5 rounded-xl bg-green-500/10 text-green-600 text-sm font-black text-center border border-green-500/20 shadow-sm flex items-center justify-center gap-2">

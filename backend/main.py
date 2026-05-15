@@ -335,6 +335,33 @@ def create_booking(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
+    # EXPIRATION CLEANUP: Auto-expire pending bookings older than 24 hours
+    expire_threshold = datetime.utcnow() - timedelta(hours=24)
+    expired_bookings = db.query(models.Booking).filter(
+        models.Booking.vehicle_id == vehicle.id,
+        models.Booking.status == "pending",
+        models.Booking.created_at < expire_threshold
+    ).all()
+    for eb in expired_bookings:
+        eb.status = "cancelled"
+    if expired_bookings:
+        db.commit()
+
+    # OVERLAP VALIDATION
+    overlapping = db.query(models.Booking).filter(
+        models.Booking.vehicle_id == vehicle.id,
+        models.Booking.status.in_(["pending", "confirmed", "paid", "picked", "received"]),
+        models.Booking.start_date < booking.end_date,
+        models.Booking.end_date > booking.start_date
+    ).first()
+    
+    if overlapping:
+        status_msg = "confirmed/paid" if overlapping.status != "pending" else "pending"
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Vehicle is already locked ({status_msg}) for the selected dates."
+        )
+
     # Calculate days
     delta = booking.end_date - booking.start_date
     days = max(1, delta.days)
@@ -347,7 +374,8 @@ def create_booking(
         **booking.dict(),
         user_id=current_user.id,
         total_price=total_price,
-        status="pending"
+        status="pending",
+        created_at=datetime.utcnow()
     )
     db.add(db_booking)
     db.commit()
@@ -369,6 +397,25 @@ def create_booking(
         )
 
     return db_booking
+
+@app.get("/vehicles/{vehicle_id}/bookings", response_model=List[schemas.Booking])
+def get_vehicle_bookings(vehicle_id: int, db: Session = Depends(get_db)):
+    # Auto-expire old pending bookings
+    expire_threshold = datetime.utcnow() - timedelta(hours=24)
+    expired_bookings = db.query(models.Booking).filter(
+        models.Booking.vehicle_id == vehicle_id,
+        models.Booking.status == "pending",
+        models.Booking.created_at < expire_threshold
+    ).all()
+    for eb in expired_bookings:
+        eb.status = "cancelled"
+    if expired_bookings:
+        db.commit()
+
+    return db.query(models.Booking).filter(
+        models.Booking.vehicle_id == vehicle_id,
+        models.Booking.status.in_(["pending", "confirmed", "paid", "picked", "received"])
+    ).all()
 
 @app.get("/user/bookings", response_model=List[schemas.Booking])
 def get_user_bookings(
@@ -479,6 +526,28 @@ def pay_booking(
             booking_id=booking.id
         )
         
+    return booking
+
+@app.post("/bookings/{booking_id}/user-cancel", response_model=schemas.Booking)
+def user_cancel_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    booking = db.query(models.Booking).filter(
+        models.Booking.id == booking_id,
+        models.Booking.user_id == current_user.id
+    ).first()
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking.status not in ["pending", "confirmed"]:
+        raise HTTPException(status_code=400, detail="Cannot cancel booking in current status")
+    
+    booking.status = "cancelled"
+    db.commit()
+    db.refresh(booking)
     return booking
 
 # --- SAFETY LOG ENDPOINTS ---
@@ -628,7 +697,21 @@ def get_all_vehicles(
     db: Session = Depends(get_db),
     admin: models.User = Depends(get_current_admin)
 ):
-    return db.query(models.Vehicle).order_by(models.Vehicle.id.desc()).all()
+    return db.query(models.Vehicle).options(joinedload(models.Vehicle.owner)).order_by(models.Vehicle.id.desc()).all()
+
+@app.delete("/admin/vehicles/{vehicle_id}")
+def admin_delete_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    
+    db.delete(vehicle)
+    db.commit()
+    return {"message": "Vehicle deleted successfully"}
 
 @app.patch("/admin/vehicles/{vehicle_id}/approve", response_model=schemas.Vehicle)
 def approve_vehicle(

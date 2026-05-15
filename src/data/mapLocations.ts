@@ -68,6 +68,34 @@ export const districtProvinceMap: Record<string, string> = {
   Kegalle: "Sabaragamuwa"
 };
 
+export const DISTRICT_CITY_MAP: Record<string, string[]> = {
+  Colombo: ["Colombo 1-15", "Dehiwala", "Moratuwa", "Kotte", "Maharagama", "Nugegoda", "Homagama"],
+  Gampaha: ["Negombo", "Ja-Ela", "Kadawatha", "Gampaha", "Kelaniya", "Wattala", "Minuwangoda"],
+  Kalutara: ["Kalutara", "Panadura", "Horana", "Beruwala", "Matugama"],
+  Kandy: ["Kandy", "Peradeniya", "Katugastota", "Gampola", "Nawalapitiya"],
+  Matale: ["Matale", "Dambulla", "Galewela", "Sigiriya"],
+  "Nuwara Eliya": ["Nuwara Eliya", "Hatton", "Nanu Oya", "Talawakele"],
+  Galle: ["Galle", "Hikkaduwa", "Unawatuna", "Ambalangoda", "Elpitiya"],
+  Matara: ["Matara", "Weligama", "Akuressa", "Hakmana", "Dikwella", "Kamburugamuwa"],
+  Hambantota: ["Hambantota", "Tangalle", "Tissamaharama", "Beliatta", "Ambalantota"],
+  Jaffna: ["Jaffna", "Nallur", "Chavakachcheri", "Point Pedro", "Kopay"],
+  Kilinochchi: ["Kilinochchi", "Pallai", "Poonakary"],
+  Mannar: ["Mannar", "Murunkan", "Pesalai"],
+  Mullaitivu: ["Mullaitivu", "Puthukkudiyiruppu", "Oddusuddan"],
+  Vavuniya: ["Vavuniya", "Cheddikulam"],
+  Trincomalee: ["Trincomalee", "Kinniya", "Mutur", "Nilaveli"],
+  Batticaloa: ["Batticaloa", "Kalkudah", "Kattankudy", "Valaichchenai"],
+  Ampara: ["Ampara", "Kalmunai", "Samanthurai", "Pottuvil", "Arugam Bay"],
+  Kurunegala: ["Kurunegala", "Kuliyapitiya", "Narammala", "Wariyapola"],
+  Puttalam: ["Puttalam", "Chilaw", "Wennappuwa", "Nattandiya", "Kalpitiya"],
+  Anuradhapura: ["Anuradhapura", "Kekirawa", "Medawachchiya", "Tambuttegama"],
+  Polonnaruwa: ["Polonnaruwa", "Hingurakgoda", "Medirigiriya", "Kaduruwela"],
+  Badulla: ["Badulla", "Bandarawela", "Haputale", "Mahiyanganaya", "Ella"],
+  Monaragala: ["Monaragala", "Bibile", "Wellawaya", "Kataragama"],
+  Ratnapura: ["Ratnapura", "Pelmadulla", "Balangoda", "Embilipitiya"],
+  Kegalle: ["Kegalle", "Mawanella", "Warakapola", "Ruwanwella"]
+};
+
 export const getProvinceForDistrict = (district: string): string => {
   // Normalize district name (remove spaces and special chars if needed, or just look up)
   const normalized = district.replace(/\s+/g, "");

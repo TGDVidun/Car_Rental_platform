@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,20 +22,12 @@ import {
   isAfter,
   differenceInDays,
   startOfDay,
+  addDays,
 } from "date-fns";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** Returns booked date keys (yyyy-MM-dd) for the given month for demo. */
-function getBookedDatesForMonth(month: Date): Set<string> {
-  const set = new Set<string>();
-  const y = month.getFullYear();
-  const m = month.getMonth();
-  [5, 6, 7, 12, 13, 19, 20, 21].forEach((d) => {
-    if (d <= getDaysInMonth(month)) set.add(format(new Date(y, m, d), "yyyy-MM-dd"));
-  });
-  return set;
-}
+
 
 // Helper to transform backend vehicle to frontend format
 const transformVehicle = (v: any) => ({
@@ -82,6 +74,36 @@ export default function VehicleDetails() {
       return transformVehicle(data);
     }
   });
+
+  const { data: bookings } = useQuery({
+    queryKey: ["vehicle_bookings", id],
+    queryFn: async () => {
+      const response = await fetch(`http://127.0.0.1:8000/vehicles/${id}/bookings`);
+      if (!response.ok) return [];
+      return await response.json();
+    }
+  });
+
+  const lockedDates = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!bookings) return map;
+    bookings.forEach((b: any) => {
+      const start = new Date(b.start_date);
+      const end = new Date(b.end_date);
+      const status = b.status;
+      let current = startOfDay(start);
+      const last = startOfDay(end);
+      while (current <= last) {
+        // If overlapping bookings exist (e.g., cancelled later), prioritize confirmed over pending
+        const existing = map.get(format(current, "yyyy-MM-dd"));
+        if (existing !== "confirmed" && existing !== "paid" && existing !== "picked" && existing !== "received") {
+          map.set(format(current, "yyyy-MM-dd"), status);
+        }
+        current = addDays(current, 1);
+      }
+    });
+    return map;
+  }, [bookings]);
 
   const [bookingLoading, setBookingLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -194,7 +216,6 @@ export default function VehicleDetails() {
   const firstDay = startOfMonth(calendarMonth);
   const daysInMonth = getDaysInMonth(calendarMonth);
   const offset = getISODay(firstDay) - 1;
-  const bookedInMonth = getBookedDatesForMonth(calendarMonth);
   const calendarCells: (Date | null)[] = [
     ...Array(offset).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), i + 1)),
@@ -208,7 +229,7 @@ export default function VehicleDetails() {
     if (target < today) return;
     
     const key = format(d, "yyyy-MM-dd");
-    if (bookedInMonth.has(key)) return;
+    if (lockedDates.has(key)) return;
     
     if (!pickStart || (pickStart && pickEnd)) {
       setPickStart(target);
@@ -400,7 +421,10 @@ export default function VehicleDetails() {
                 {calendarCells.map((cell, i) => {
                   if (!cell) return <div key={`empty-${i}`} />;
                   const key = format(cell, "yyyy-MM-dd");
-                  const booked = bookedInMonth.has(key);
+                  const lockedStatus = lockedDates.get(key);
+                  const isPending = lockedStatus === "pending";
+                  const isConfirmed = lockedStatus === "confirmed" || lockedStatus === "paid" || lockedStatus === "picked" || lockedStatus === "received";
+                  const booked = isPending || isConfirmed;
                   const today = startOfDay(new Date());
                   const isPast = startOfDay(cell) < today;
                   const selected = (pickStart && isSameDay(cell, pickStart)) || (pickEnd && isSameDay(cell, pickEnd));
@@ -412,8 +436,10 @@ export default function VehicleDetails() {
                       type="button"
                       disabled={booked || isPast}
                       onClick={() => handleDateClick(cell)}
-                      className={`py-2 rounded-lg text-sm transition-colors relative ${booked
+                      className={`py-2 rounded-lg text-sm transition-colors relative ${isConfirmed
                         ? "bg-destructive/10 text-destructive line-through cursor-not-allowed"
+                        : isPending
+                        ? "bg-amber-500/20 text-amber-600 line-through cursor-not-allowed"
                         : isPast
                         ? "text-muted-foreground opacity-30 cursor-not-allowed"
                         : selected
@@ -433,7 +459,8 @@ export default function VehicleDetails() {
               </div>
               <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-secondary" /> Available</span>
-                <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-destructive/20" /> Booked</span>
+                <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-destructive/20" /> Confirmed</span>
+                <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-500/20" /> Pending</span>
                 <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-primary" /> Selected</span>
               </div>
               {(pickStart || pickEnd) && (

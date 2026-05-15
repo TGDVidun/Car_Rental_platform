@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, X, MapPin, Star, Map as MapIcon, LayoutGrid, Navigation } from "lucide-react";
+import { SlidersHorizontal, X, MapPin, Star, Map as MapIcon, LayoutGrid, Navigation, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -10,7 +10,8 @@ import {
   getProvinceForDistrict, 
   SRI_LANKA_CENTER, 
   SRI_LANKA_DEFAULT_ZOOM,
-  getCoordsForVehicle 
+  getCoordsForVehicle,
+  DISTRICT_CITY_MAP
 } from "@/data/mapLocations";
 import { useTheme } from "@/hooks/useTheme";
 import { Link } from "react-router-dom";
@@ -225,8 +226,16 @@ function VehicleMap({ vehicles, isDark }: { vehicles: Vehicle[], isDark: boolean
                   </div>
                   <div className="p-3 bg-card">
                     <h5 className="font-heading font-bold text-sm">{v.name}</h5>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3" /> {v.district}, {v.province}
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1 font-semibold">
+                      <MapPin className="w-3 h-3" /> {v.district}, {v.city}
+                    </p>
+                    {v.road && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 ml-4">
+                        {v.road}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1 ml-4 flex items-center gap-1">
+                      <User className="w-3 h-3" /> {v.hasDriverOption ? "With Driver option available" : "Self Drive Only"}
                     </p>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-primary font-bold text-xs">{formatCurrency(v.pricePerDay)}<span className="text-[10px] font-normal text-muted-foreground">/day</span></span>
@@ -428,13 +437,7 @@ export default function SearchPage() {
 
   const currentCities = useMemo(() => {
     if (!selectedDistrict) return [];
-    // For cities, we look at ALL possible vehicles (could be optimized if needed)
-    return Array.from(new Set(
-      fallbackVehicles // Using fallback for options list or we could use context's availableVehicles if we exposed it
-        .filter(v => v.district === selectedDistrict)
-        .map(v => v.city)
-        .filter(Boolean)
-    )).sort() as string[];
+    return DISTRICT_CITY_MAP[selectedDistrict] || [];
   }, [selectedDistrict]);
 
   const handleProvinceChange = (p: string) => {

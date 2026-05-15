@@ -92,6 +92,8 @@ export default function ManageBookingsPage() {
                 return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><CheckCircle2 className="w-3 h-3" /> Payment Received</span>;
             case "cancelled":
                 return <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" /> Cancelled</span>;
+            case "rejected":
+                return <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" /> Rejected</span>;
             case "pending":
             default:
                 return <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit"><Clock className="w-3 h-3" /> Pending Approval</span>;
@@ -183,8 +185,8 @@ export default function ManageBookingsPage() {
                                                     Approve
                                                 </button>
                                                 <button
-                                                    onClick={() => handleStatusUpdate(booking.id, "cancelled")}
-                                                    className="px-6 py-2.5 rounded-xl bg-[#F8F9FA] text-red-600 text-sm font-bold border border-red-100 hover:bg-red-50 transition-all"
+                                                    onClick={() => handleStatusUpdate(booking.id, "rejected")}
+                                                    className="px-6 py-2.5 rounded-xl bg-[#F8F9FA] text-rose-600 text-sm font-bold border border-rose-100 hover:bg-rose-50 transition-all"
                                                 >
                                                     Decline
                                                 </button>
